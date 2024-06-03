@@ -1,0 +1,14 @@
+server:
+  port: 8005
+  servlet:
+    context-path: /order
+spring:
+  application:
+    name: hitch-order-server
+  cloud:
+    nacos:
+      server-addr: 192.168.64.100:8848
+      config:
+        server-addr: 192.168.64.100:8848
+        prefix: taxi-feign-common
+        file-extension: yaml
