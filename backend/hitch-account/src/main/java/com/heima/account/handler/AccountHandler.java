@@ -87,12 +87,37 @@ public class AccountHandler {
         String userid = accountVO.getCurrentUserId();
         //TODO:任务1-修改密码-1day
         //获取当前用户在数据库里的信息
+        AccountPO accountPO = accountAPIService.getAccountByID(accountVO.getCurrentUserId());
+        if (null == accountPO) {
+            throw new BusinessRuntimeException(BusinessErrors.DATA_NOT_EXIST, "用户信息不存在");
+        }
+
         //旧密码加密，对比数据库，防止输入错误
+        String pwd_old = accountVO.getPassword();
+        //System.out.println("pwd_old: " + pwd_old);
+        String pwd_old_salt = CommonsUtils.encodeMD5(pwd_old);
+        //System.out.println("pwd_old_salt: " + pwd_old_salt);
+        //System.out.println("pwd_old_database: " + accountPO.getPassword());
+        //System.out.println(pwd_old_salt.equals(accountPO.getPassword()));
+        if (!pwd_old_salt.equals(accountPO.getPassword())) {
+            return ResponseVO.error("旧密码不正确");
+        }
+
         //新密码加密，对比旧密码，不允许相同
+        String pwd_new = accountVO.getNewPassword();
+        String pwd_new_salt = CommonsUtils.encodeMD5(pwd_new);
+        //System.out.println("pwd_new: " + pwd_new);
+        //System.out.println("pwd_new_salt: " + pwd_new_salt);
+        if (pwd_old_salt.equals(pwd_new_salt)) {
+            return ResponseVO.error("新旧密码不能相同");
+        }
         //校验通过，将新密码写入数据库，修改成功
-
-
-        return ResponseVO.success(null, "修改密码成功");
+        AccountPO po = CommonsUtils.toPO(accountVO);
+        po.setPassword(pwd_new_salt);
+        //System.out.println("po_pwd_new_salt: " + po.getPassword());
+        po.setId(accountPO.getId());
+        accountAPIService.update(po);
+        return ResponseVO.success(po, "修改密码成功");
     }
 
     /**
