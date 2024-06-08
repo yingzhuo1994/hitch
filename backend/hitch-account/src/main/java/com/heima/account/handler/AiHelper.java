@@ -54,8 +54,82 @@ public class AiHelper {
 
     * */
     public String getLicense(VehiclePO vehiclePO) throws IOException {
+        // Check if vehiclePO or carFrontPhoto is null
+        if (vehiclePO == null || vehiclePO.getCarFrontPhoto() == null) {
+            throw new BusinessRuntimeException(BusinessErrors.DATA_NOT_EXIST, "未上传前车照片");
+        }
 
-        return "00000";
+        String carFrontPhotoUrl = vehiclePO.getCarFrontPhoto();
+
+        // Step 1: Download the image from the URL to a temporary file
+        File tempFile = downloadImage(carFrontPhotoUrl);
+
+        // Step 2: Encode the image file to Base64
+        String base64Image = encodeFileToBase64(tempFile);
+
+        // Step 3: Get access token from Baidu AI
+        String accessToken = getAccessToken(API_KEY, SECRET_KEY);
+
+        // Step 4: Call Baidu AI API for license plate recognition
+        String licensePlateNumber = recognizeLicensePlate(base64Image, accessToken);
+
+        // Clean up the temporary file
+        if (tempFile.exists()) {
+            tempFile.delete();
+        }
+
+        return licensePlateNumber;
     }
 
+    private File downloadImage(String imageUrl) throws IOException {
+        URL url = new URL(imageUrl);
+        File tempFile = Files.createTempFile("car_front_photo", ".jpg").toFile();
+        FileUtils.copyURLToFile(url, tempFile);
+        return tempFile;
+    }
+
+    private String encodeFileToBase64(File file) throws IOException {
+        byte[] fileContent = Files.readAllBytes(file.toPath());
+        return Base64.getEncoder().encodeToString(fileContent);
+    }
+
+    private String getAccessToken(String apiKey, String secretKey) throws IOException {
+        String authUrl = "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=" + apiKey + "&client_secret=" + secretKey;
+
+        Request request = new Request.Builder().url(authUrl).build();
+        Response response = HTTP_CLIENT.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            throw new IOException("Unexpected code " + response);
+        }
+
+        String responseBody = response.body().string();
+        JSONObject jsonObject = new JSONObject(responseBody);
+        return jsonObject.getString("access_token");
+    }
+
+    private String recognizeLicensePlate(String base64Image, String accessToken) throws IOException {
+        String ocrUrl = "https://aip.baidubce.com/rest/2.0/ocr/v1/license_plate";
+
+        RequestBody requestBody = new FormBody.Builder()
+                .add("image", base64Image)
+                .build();
+
+        Request request = new Request.Builder()
+                .url(ocrUrl + "?access_token=" + accessToken)
+                .post(requestBody)
+                .addHeader("Content-Type", "application/x-www-form-urlencoded")
+                .build();
+
+        Response response = HTTP_CLIENT.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            throw new IOException("Unexpected code " + response);
+        }
+
+        String responseBody = response.body().string();
+        JSONObject jsonObject = new JSONObject(responseBody);
+        JSONObject wordsResult = jsonObject.getJSONObject("words_result");
+        return wordsResult.getString("number");
+    }
 }
