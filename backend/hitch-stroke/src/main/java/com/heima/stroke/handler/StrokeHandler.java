@@ -414,7 +414,25 @@ public class StrokeHandler {
         //3.3 完成计费功能，给orderPo设置金额
         //计费规则：3公里以内起步价13元；3公里以上2.3元/公里；燃油附加费1次收取1元
         //建议：使用装饰着模式来完成
+        
+        orderPO.setDriverStrokeId(inviter.getId());
+        orderPO.setDriverId(inviter.getPublisherId());
+        orderPO.setPassengerStrokeId(invitee.getId());
+        orderPO.setPassengerId(invitee.getPublisherId());
+        orderPO.setCreatedBy(invitee.getCreatedBy());
+        orderPO.setCreatedTime(new Date());
+        orderPO.setUpdatedBy(invitee.getCreatedBy());
+        orderPO.setUpdatedTime(new Date());
 
+        //批量算路服务
+        String start = invitee.getStartGeoLat() + "," + invitee.getStartGeoLng();
+        String end = invitee.getEndGeoLat() + "," + invitee.getEndGeoLng();
+        RoutePlanResultBO resultBO = baiduMapClient.pathPlanning(start, end);
+        if (null != resultBO) {
+            orderPO.setDistance(resultBO.getDistance().getValue());
+            orderPO.setEstimatedTime(resultBO.getDuration().getValue());
+            orderPO.setCost(valuation.calculation((float) orderPO.getDistance() /1000));
+        }
 
         orderAPIService.add(orderPO);
     }
