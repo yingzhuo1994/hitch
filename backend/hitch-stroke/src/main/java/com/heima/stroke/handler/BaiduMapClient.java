@@ -25,7 +25,27 @@ public class BaiduMapClient {
 
     //TODO:任务3.2-调百度路径计算两点间的距离，和预估抵达时长
     public RoutePlanResultBO pathPlanning(String origins, String destinations) {
-
+        // System.out.println("pathPlanning");
+        // System.out.println(api);
+        Map<String, String> reqMap = new HashMap<>();
+        reqMap.put("ak", ak);
+        reqMap.put("origins", origins);
+        reqMap.put("destinations", destinations);
+        String result = null;
+        logger.info("send to Baidu:{}",reqMap);
+        try {
+            result = HttpClientUtils.doGet(api, reqMap);
+            logger.info("get from Baidu:{}",result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        JSONObject jsonObject = (JSONObject) JSON.parse(result);
+        if (null != jsonObject && jsonObject.getString("status").equals("0")) {
+            JSONArray resultArray = jsonObject.getJSONArray("result");
+            if (null != resultArray && !resultArray.isEmpty()) {
+                return resultArray.toJavaList(RoutePlanResultBO.class).get(0);
+            }
+        }
         return null;
     }
 
