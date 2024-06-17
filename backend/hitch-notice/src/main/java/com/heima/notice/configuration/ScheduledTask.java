@@ -39,11 +39,41 @@ public class ScheduledTask {
         //定时调度，获取mongodb里的未读消息，推送给对应用户
         executorService.scheduleAtFixedRate(() -> {
             //获取所有在线的用户accountId，提示：WebSocketServer里有用户链接的池子
+            //获取最新需要推送的消息
+            Set<String> accountKeys = WebSocketServer.sessionPools.keySet();
+            //logger.info("msg task working,inline accounts:{}",accountIds);
+            if (accountKeys == null || accountKeys.isEmpty()){
+                return;
+            }
 
             //在MongoDB中获取需要推送的消息，noticeService里的方法研究一下，可以帮到你
+            //在MongoDB中获取当前在线用户的暂存消息
+            List<String> accountIds = new ArrayList<>(accountKeys.size());
+            accountIds.addAll(accountKeys);
+            List<NoticePO> pushMessagesList = noticeService.getNoticeByAccountIds(accountIds);
 
             //遍历所有消息，逐个发送消息到浏览器
             //方法：session.getBasicRemote().sendText(json);
+
+            //校验消息
+            if (null != pushMessagesList && !pushMessagesList.isEmpty()) {
+                logger.debug("推送消息线程工作中,推送数据条数:{}", pushMessagesList.size());
+                //推送消息
+                for (NoticePO noticePO : pushMessagesList) {
+                    //获取当前会话
+                    Session session = WebSocketServer.sessionPools.get(noticePO.getReceiverId());
+                    if (null != session && null != noticePO) {
+                        //获取消息体
+                        try {
+                            session.getBasicRemote().sendText(JSON.toJSONString(noticePO));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+
+            }
+            logger.debug("推送消息线程工作中,推送数据条数:{}", 0);
 
         }, 0,1 , TimeUnit.SECONDS);
     }
